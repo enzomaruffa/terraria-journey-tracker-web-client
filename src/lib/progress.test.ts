@@ -1,49 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerSave } from './plr/parse';
 import { buildProgress, findCraftable } from './progress';
-import type { Catalogue, Item, Recipe } from './types';
+import { catalogue as buildCatalogue, ingredient, item, recipe } from './testing/fixtures';
 
-function item(id: number, name: string, research = 1): Item {
-	return {
-		id,
-		name,
-		internalName: name.replace(/ /g, ''),
-		research,
-		imageUrl: '',
-		wikiUrl: '',
-		categories: [],
-		rarity: 0
-	};
-}
-
-function catalogue(): Catalogue {
-	const items = new Map<number, Item>([
-		[1, item(1, 'Wood', 100)],
-		[2, item(2, 'Ebonwood', 100)],
-		[3, item(3, 'Iron Bar', 25)],
-		[4, item(4, 'Chest', 1)],
-		[5, item(5, 'Zenith', 1)]
-	]);
-
-	const recipes: Recipe[] = [
-		{
-			id: 4,
-			name: 'Chest',
-			stationIds: [1],
-			ingredients: [
-				{ name: 'Any Wood', ids: [1, 2], amount: 8 },
-				{ name: 'Iron Bar', ids: [3], amount: 2 }
-			]
-		},
-		{
-			id: 5,
-			name: 'Zenith',
-			stationIds: [1],
-			ingredients: [{ name: 'Soul of Blight', ids: [], amount: 1 }]
-		}
-	];
-
-	return { meta: { gameVersion: '1.4.5.6' }, items, recipes, stations: new Map() };
+function catalogue() {
+	return buildCatalogue(
+		[
+			item(1, 'Wood', { research: 100 }),
+			item(2, 'Ebonwood', { research: 100 }),
+			item(3, 'Iron Bar', { research: 25 }),
+			item(4, 'Chest'),
+			item(5, 'Zenith')
+		],
+		[
+			recipe(4, 'Chest', [ingredient('Any Wood', [1, 2], 8), ingredient('Iron Bar', [3], 2)]),
+			// An ingredient no item satisfies, like the 12 removed items in the real data.
+			recipe(5, 'Zenith', [ingredient('Soul of Blight', [], 1)])
+		]
+	);
 }
 
 function save(research: Record<string, number>, difficulty = 3): PlayerSave {
