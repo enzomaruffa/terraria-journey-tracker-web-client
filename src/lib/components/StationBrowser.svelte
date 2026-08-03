@@ -39,11 +39,13 @@
 	<div class="grid">
 		{#each rows as row (row.station.id)}
 			<div class="station" class:idle={row.craftable === 0}>
+				<!-- See ItemCard: without no-referrer, wiki.gg returns a 403 for these. -->
 				<img
 					src={row.station.imageUrls[0]}
 					alt=""
 					loading="lazy"
 					decoding="async"
+					referrerpolicy="no-referrer"
 					onerror={hideBrokenImage}
 				/>
 				<div class="text">

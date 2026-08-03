@@ -15,6 +15,8 @@
 <!-- Links out to terraria.wiki.gg, so there is no app route to resolve against. -->
 <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 <a class="item {state}" href={item.wikiUrl} target="_blank" rel="noreferrer noopener">
+	<!-- referrerpolicy is load-bearing: wiki.gg's hotlink protection returns a Cloudflare
+	     403 for any image request carrying a Referer from another origin. -->
 	<img
 		src={item.imageUrl}
 		alt=""
@@ -22,6 +24,7 @@
 		decoding="async"
 		width="32"
 		height="32"
+		referrerpolicy="no-referrer"
 		onerror={hideBrokenImage}
 	/>
 
