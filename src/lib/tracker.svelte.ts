@@ -1,4 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity';
+import { computeClosure, type ClosureResult } from './analysis/closure';
+import { buildGraph, type CraftGraph } from './analysis/graph';
+import { computeLeverage, type Leverage } from './analysis/leverage';
 import { connectSocket, fetchCatalogue, fetchProgress, fetchStatus } from './api';
 import { parsePlayerFile } from './plr/parse';
 import { buildProgress } from './progress';
@@ -24,6 +27,38 @@ class Tracker {
 	#pollTimer: ReturnType<typeof setInterval> | null = null;
 	#lastModified = 0;
 
+	/** Indexed once per catalogue; every closure query reuses it. */
+	#graph: CraftGraph | null = null;
+
+	/** Items whose sacrifice count has reached their research cost. */
+	researched = $derived.by(() => {
+		const done = new SvelteSet<number>();
+		if (!this.catalogue || !this.progress) return done;
+
+		for (const [key, count] of Object.entries(this.progress.sacrificed)) {
+			const id = Number(key);
+			const item = this.catalogue.items.get(id);
+			if (item && count >= item.research) done.add(id);
+		}
+		return done;
+	});
+
+	/**
+	 * The full cascade: everything reachable by chain-crafting, with no gathering.
+	 *
+	 * Measured at ~5ms over the real catalogue, so this runs inline rather than in a worker.
+	 */
+	closure = $derived.by<ClosureResult | null>(() => {
+		if (!this.catalogue || !this.#graph) return null;
+		return computeClosure(this.#graph, this.researched);
+	});
+
+	/** What to go and find next, ranked by how much each unlocks. */
+	leverage = $derived.by<Leverage[]>(() => {
+		if (!this.catalogue || !this.#graph || !this.closure) return [];
+		return computeLeverage(this.#graph, this.catalogue, this.closure);
+	});
+
 	get knownNames(): Set<string> {
 		const names = new SvelteSet<string>();
 		for (const item of this.catalogue?.items.values() ?? []) names.add(item.internalName);
@@ -34,6 +69,7 @@ class Tracker {
 		this.loading = true;
 		try {
 			this.catalogue = await fetchCatalogue();
+			this.#graph = buildGraph(this.catalogue);
 		} catch (error) {
 			this.error = error instanceof Error ? error.message : String(error);
 			this.loading = false;

@@ -7,6 +7,26 @@ export interface Item {
 	wikiUrl: string;
 	categories: string[];
 	rarity: number;
+	tooltip: string[];
+	/** Coin values, in copper. */
+	sell: number | null;
+	buy: number | null;
+	damage: number | null;
+	defense: number | null;
+	maxStack: number | null;
+	placeable: boolean;
+	hardmode: boolean;
+	consumable: boolean;
+}
+
+/** One way an item can be obtained. Sources include crates and chests, not just enemies. */
+export interface Drop {
+	source: string;
+	quantity: string;
+	rate: string;
+	ratePercent: number | null;
+	expert: boolean;
+	master: boolean;
 }
 
 export interface Ingredient {
@@ -20,6 +40,8 @@ export interface Recipe {
 	name: string;
 	stationIds: number[];
 	ingredients: Ingredient[];
+	/** How many items one craft produces — Torch is 1 Gel + 1 Wood for three Torches. */
+	yield: number;
 }
 
 export interface Station {
@@ -36,6 +58,7 @@ export interface DataMeta {
 	itemCount?: number;
 	recipeCount?: number;
 	stationCount?: number;
+	droppedItemCount?: number;
 }
 
 export interface Catalogue {
@@ -43,6 +66,7 @@ export interface Catalogue {
 	items: Map<number, Item>;
 	recipes: Recipe[];
 	stations: Map<number, Station>;
+	drops: Map<number, Drop[]>;
 }
 
 export interface Overview {

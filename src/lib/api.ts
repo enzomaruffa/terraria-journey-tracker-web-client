@@ -1,5 +1,6 @@
 import type {
 	Catalogue,
+	Drop,
 	FoundPlayer,
 	Item,
 	Progress,
@@ -55,6 +56,7 @@ interface RawCatalogue {
 	items: { meta: Catalogue['meta']; items: Record<string, Item> };
 	recipes: { recipes: Recipe[] };
 	stations: { stations: Record<string, Station> };
+	drops: { drops: Record<string, Drop[]> };
 }
 
 function toCatalogue(raw: RawCatalogue): Catalogue {
@@ -64,7 +66,8 @@ function toCatalogue(raw: RawCatalogue): Catalogue {
 		recipes: raw.recipes.recipes,
 		stations: new Map(
 			Object.entries(raw.stations.stations).map(([id, station]) => [Number(id), station])
-		)
+		),
+		drops: new Map(Object.entries(raw.drops?.drops ?? {}).map(([id, list]) => [Number(id), list]))
 	};
 }
 
@@ -76,19 +79,20 @@ function toCatalogue(raw: RawCatalogue): Catalogue {
  */
 export async function fetchCatalogue(signal?: AbortSignal): Promise<Catalogue> {
 	const sources = [
-		[`${API}/items`, `${API}/recipes`, `${API}/stations`],
-		['data/items.json', 'data/recipes.json', 'data/stations.json']
+		[`${API}/items`, `${API}/recipes`, `${API}/stations`, `${API}/drops`],
+		['data/items.json', 'data/recipes.json', 'data/stations.json', 'data/drops.json']
 	];
 
 	let lastError: unknown;
-	for (const [items, recipes, stations] of sources) {
+	for (const [items, recipes, stations, drops] of sources) {
 		try {
-			const [i, r, s] = await Promise.all([
+			const [i, r, s, d] = await Promise.all([
 				getJson<RawCatalogue['items']>(items, signal),
 				getJson<RawCatalogue['recipes']>(recipes, signal),
-				getJson<RawCatalogue['stations']>(stations, signal)
+				getJson<RawCatalogue['stations']>(stations, signal),
+				getJson<RawCatalogue['drops']>(drops, signal)
 			]);
-			return toCatalogue({ items: i, recipes: r, stations: s });
+			return toCatalogue({ items: i, recipes: r, stations: s, drops: d });
 		} catch (error) {
 			if (signal?.aborted) throw error;
 			lastError = error;

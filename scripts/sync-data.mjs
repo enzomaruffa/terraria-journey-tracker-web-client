@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_SOURCE = resolve(root, '..', 'terraria-journey-tracker-server', 'data');
-const FILES = ['items.json', 'recipes.json', 'stations.json'];
+const FILES = ['items.json', 'recipes.json', 'stations.json', 'drops.json'];
 
 const source = resolve(process.argv[2] ?? DEFAULT_SOURCE);
 const target = join(root, 'static', 'data');
