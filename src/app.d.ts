@@ -27,6 +27,10 @@ declare global {
 	interface Window {
 		showOpenFilePicker(options?: OpenFilePickerOptions): Promise<FileSystemFileHandle[]>;
 	}
+
+	/** Injected at build time by vite.config.ts. */
+	const __APP_VERSION__: string;
+	const __APP_BUILD__: string;
 }
 
 export {};

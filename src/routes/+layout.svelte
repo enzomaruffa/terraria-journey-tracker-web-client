@@ -41,6 +41,9 @@
 		<a href="https://github.com/enzomaruffa/terraria-journey-tracker-web-client">client</a>
 		<span>·</span>
 		<a href="https://terraria.wiki.gg">item data from terraria.wiki.gg</a>
+		<span>·</span>
+		<!-- So it is obvious whether a re-run actually picked up a newer build. -->
+		<span class="build">v{__APP_VERSION__} · built {__APP_BUILD__}</span>
 	</footer>
 </div>
 
@@ -113,5 +116,9 @@
 
 	footer a:hover {
 		color: var(--text-muted);
+	}
+
+	.build {
+		font-family: var(--mono);
 	}
 </style>

@@ -2,8 +2,10 @@
 	/**
 	 * The item in context: what goes into it on the left, what it goes into on the right.
 	 *
-	 * Crafting is a graph, and a two-column node view shows an item's place in it far faster
-	 * than two lists do. Nodes are clickable, so the graph doubles as a way to walk the tree.
+	 * Crafting is a graph, and a column view shows an item's place in it far faster than two
+	 * lists do. Depth is adjustable because one layer answers "what is this made of" while
+	 * three answers "where does this sit in the tree" — different questions, same picture.
+	 * Nodes are clickable, so the graph doubles as a way to walk the tree.
 	 */
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -18,26 +20,28 @@
 
 	let { catalogue, id: itemId, researched }: Props = $props();
 
-	const NODE_W = 154;
-	const NODE_H = 32;
-	const NODE_GAP = 10;
-	/** Hard ceiling; the real limit is however many fit in the canvas without clipping. */
-	const MAX_SIDE = 10;
+	const NODE_H = 30;
+	const NODE_GAP = 8;
+	const MAX_DEPTH = 3;
+
+	let depth = $state(1);
 
 	interface Node {
 		id: number;
 		label: string;
 		x: number;
 		y: number;
-		side: -1 | 0 | 1;
+		/** Signed layer: negative is towards ingredients, positive towards products. */
+		layer: number;
 		amount?: number;
+		parent: number | null;
 	}
 
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let hovered = $state<number | null>(null);
-	let hiddenLeft = $state(0);
-	let hiddenRight = $state(0);
+	let truncated = $state(0);
 	let nodes: Node[] = [];
+	let nodeWidth = 150;
 	let frame = 0;
 
 	/** Sprites are hotlinked, so every load has to suppress the referrer or wiki.gg 403s it. */
@@ -55,92 +59,141 @@
 		return null;
 	}
 
-	let makes = $derived(catalogue.recipes.filter((r) => r.id === itemId));
-	let usedIn = $derived(
-		catalogue.recipes.filter((r) => r.ingredients.some((i) => i.ids.includes(itemId)))
-	);
-
-	/** Distinct ingredients across every recipe that produces this item. */
-	let inputs = $derived.by(() => {
-		const seen = new SvelteMap<number, number>();
-		for (const recipe of makes) {
-			for (const ingredient of recipe.ingredients) {
-				const id = ingredient.ids[0];
-				if (id !== undefined && !seen.has(id)) seen.set(id, ingredient.amount);
-			}
-		}
-		return [...seen.entries()].slice(0, MAX_SIDE);
-	});
-
-	let outputs = $derived.by(() => {
-		const seen = new SvelteSet<number>();
-		for (const recipe of usedIn) seen.add(recipe.id);
-		return [...seen].slice(0, MAX_SIDE);
-	});
-
 	function name(id: number): string {
 		return catalogue.items.get(id)?.name ?? `#${id}`;
 	}
 
-	/** How many nodes fit in a column without running off the canvas. */
+	/** Distinct ingredients of everything that crafts `id`. */
+	function ingredientsOf(id: number): Map<number, number> {
+		const found = new SvelteMap<number, number>();
+		for (const recipe of catalogue.recipes) {
+			if (recipe.id !== id) continue;
+			for (const ingredient of recipe.ingredients) {
+				const first = ingredient.ids[0];
+				if (first !== undefined && !found.has(first)) found.set(first, ingredient.amount);
+			}
+		}
+		return found;
+	}
+
+	/** Everything that lists `id` as an ingredient. */
+	function productsOf(id: number): number[] {
+		const found: number[] = [];
+		for (const recipe of catalogue.recipes) {
+			if (recipe.ingredients.some((i) => i.ids.includes(id)) && !found.includes(recipe.id)) {
+				found.push(recipe.id);
+			}
+		}
+		return found;
+	}
+
+	interface Column {
+		entries: { id: number; parent: number; amount?: number }[];
+		dropped: number;
+	}
+
+	/**
+	 * Walk outwards one layer at a time.
+	 *
+	 * `seen` spans every layer so an item that appears twice is drawn at its shallowest
+	 * position rather than repeated across columns.
+	 */
+	function expand(side: -1 | 1, maxDepth: number, capacity: number): Column[] {
+		const columns: Column[] = [];
+		const seen = new SvelteSet<number>([itemId]);
+		let frontier = [itemId];
+
+		for (let step = 0; step < maxDepth; step++) {
+			const entries: Column['entries'] = [];
+
+			for (const parent of frontier) {
+				if (side === -1) {
+					for (const [id, amount] of ingredientsOf(parent)) {
+						if (seen.has(id)) continue;
+						seen.add(id);
+						entries.push({ id, parent, amount });
+					}
+				} else {
+					for (const id of productsOf(parent)) {
+						if (seen.has(id)) continue;
+						seen.add(id);
+						entries.push({ id, parent });
+					}
+				}
+			}
+
+			if (entries.length === 0) break;
+
+			const kept = entries.slice(0, capacity);
+			columns.push({ entries: kept, dropped: entries.length - kept.length });
+			frontier = kept.map((entry) => entry.id);
+		}
+
+		return columns;
+	}
+
 	function columnCapacity(height: number): number {
-		return Math.max(1, Math.floor((height - 12) / (NODE_H + NODE_GAP)));
+		return Math.max(1, Math.floor((height - 10) / (NODE_H + NODE_GAP)));
 	}
 
 	function layout(width: number, height: number) {
 		nodes = [];
+		truncated = 0;
+
 		const cx = width / 2;
 		const cy = height / 2;
-		const columnGap = Math.min(260, width / 2 - NODE_W / 2 - 12);
 		const capacity = columnCapacity(height);
 
-		nodes.push({ id: itemId, label: name(itemId), x: cx, y: cy, side: 0 });
+		const left = expand(-1, depth, capacity);
+		const right = expand(1, depth, capacity);
+		const columns = Math.max(left.length, right.length);
 
-		const place = (ids: number[], side: -1 | 1, amounts?: Map<number, number>) => {
-			const shown = ids.slice(0, capacity);
-			const pitch = NODE_H + NODE_GAP;
-			const top = cy - ((shown.length - 1) * pitch) / 2;
+		// Columns have to share the width, so nodes shrink as depth grows.
+		const slots = columns * 2 + 1;
+		const slotWidth = width / slots;
+		nodeWidth = Math.max(72, Math.min(150, slotWidth - 14));
 
-			shown.forEach((id, index) => {
-				nodes.push({
-					id,
-					label: name(id),
-					x: cx + side * columnGap,
-					y: top + index * pitch,
-					side,
-					amount: amounts?.get(id)
+		const indexById = new SvelteMap<number, number>();
+		nodes.push({ id: itemId, label: name(itemId), x: cx, y: cy, layer: 0, parent: null });
+		indexById.set(itemId, 0);
+
+		const place = (side: -1 | 1, list: Column[]) => {
+			list.forEach((column, step) => {
+				truncated += column.dropped;
+				const pitch = NODE_H + NODE_GAP;
+				const top = cy - ((column.entries.length - 1) * pitch) / 2;
+
+				column.entries.forEach((entry, index) => {
+					const parentIndex = indexById.get(entry.parent) ?? 0;
+					nodes.push({
+						id: entry.id,
+						label: name(entry.id),
+						x: cx + side * slotWidth * (step + 1),
+						y: top + index * pitch,
+						layer: side * (step + 1),
+						amount: entry.amount,
+						parent: parentIndex
+					});
+					// First position wins, matching the dedupe in expand().
+					if (!indexById.has(entry.id)) indexById.set(entry.id, nodes.length - 1);
 				});
 			});
 		};
 
-		place(
-			inputs.map(([id]) => id),
-			-1,
-			new Map(inputs)
-		);
-		place(outputs, 1);
-
-		hiddenLeft = Math.max(0, inputs.length - capacity);
-		hiddenRight = Math.max(0, outputs.length - capacity);
+		place(-1, left);
+		place(1, right);
 	}
 
-	function roundRect(
-		context: CanvasRenderingContext2D,
-		x: number,
-		y: number,
-		w: number,
-		h: number,
-		r: number
-	) {
-		context.beginPath();
-		context.roundRect(x - w / 2, y - h / 2, w, h, r);
-	}
-
-	function styleFor(node: Node) {
+	function accentFor(node: Node): string {
 		const css = getComputedStyle(document.documentElement);
-		if (node.side === 0) return css.getPropertyValue('--cyan').trim() || '#22d3ee';
+		if (node.layer === 0) return css.getPropertyValue('--cyan').trim() || '#22d3ee';
 		if (researched.has(node.id)) return css.getPropertyValue('--green').trim() || '#34d399';
 		return css.getPropertyValue('--text-faint').trim() || '#5a6980';
+	}
+
+	function bezierAt(p0: number, p1: number, p2: number, p3: number, t: number) {
+		const u = 1 - t;
+		return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
 	}
 
 	function draw(time: number) {
@@ -162,91 +215,86 @@
 		context.setTransform(ratio, 0, 0, ratio, 0, 0);
 		context.clearRect(0, 0, width, height);
 
-		const centre = nodes[0];
-		if (!centre) return;
-
-		// Edges first, so nodes sit on top of them.
 		for (const node of nodes) {
-			if (node.side === 0) continue;
+			if (node.parent === null) continue;
+			const parent = nodes[node.parent];
 
-			const from = node.side === -1 ? node : centre;
-			const to = node.side === -1 ? centre : node;
-			const startX = from.x + NODE_W / 2;
-			const endX = to.x - NODE_W / 2;
+			// Edges always run left to right, whichever side the node is on.
+			const from = node.layer < 0 ? node : parent;
+			const to = node.layer < 0 ? parent : node;
+			const startX = from.x + nodeWidth / 2;
+			const endX = to.x - nodeWidth / 2;
 			const midX = (startX + endX) / 2;
+
+			const dim = hovered !== null && hovered !== node.id && hovered !== parent.id;
 
 			context.beginPath();
 			context.moveTo(startX, from.y);
 			context.bezierCurveTo(midX, from.y, midX, to.y, endX, to.y);
-
-			const dim = hovered !== null && hovered !== node.id;
-			context.strokeStyle = dim ? 'rgba(120, 150, 190, 0.10)' : 'rgba(34, 211, 238, 0.28)';
+			context.strokeStyle = dim ? 'rgba(120, 150, 190, 0.08)' : 'rgba(34, 211, 238, 0.26)';
 			context.lineWidth = hovered === node.id ? 1.8 : 1;
 			context.stroke();
 
-			// A packet travelling the edge, so direction of flow is obvious.
 			const t = (((time / 2600 + node.id * 0.13) % 1) + 1) % 1;
-			const px = bezierAt(startX, midX, midX, endX, t);
-			const py = bezierAt(from.y, from.y, to.y, to.y, t);
 			context.beginPath();
-			context.arc(px, py, hovered === node.id ? 2.6 : 1.8, 0, Math.PI * 2);
-			context.fillStyle = dim ? 'rgba(120, 150, 190, 0.25)' : 'rgba(232, 121, 249, 0.9)';
+			context.arc(
+				bezierAt(startX, midX, midX, endX, t),
+				bezierAt(from.y, from.y, to.y, to.y, t),
+				hovered === node.id ? 2.6 : 1.7,
+				0,
+				Math.PI * 2
+			);
+			context.fillStyle = dim ? 'rgba(120, 150, 190, 0.2)' : 'rgba(232, 121, 249, 0.85)';
 			context.fill();
 		}
 
 		for (const node of nodes) {
-			const accent = styleFor(node);
-			const dim = hovered !== null && hovered !== node.id && node.side !== 0;
+			const accent = accentFor(node);
+			const dim = hovered !== null && hovered !== node.id && node.layer !== 0;
+			const showIcon = nodeWidth >= 104;
 
-			roundRect(context, node.x, node.y, NODE_W, NODE_H, 6);
-			context.fillStyle = node.side === 0 ? 'rgba(34, 211, 238, 0.10)' : 'rgba(19, 25, 38, 0.92)';
+			context.beginPath();
+			context.roundRect(node.x - nodeWidth / 2, node.y - NODE_H / 2, nodeWidth, NODE_H, 6);
+			context.fillStyle = node.layer === 0 ? 'rgba(34, 211, 238, 0.10)' : 'rgba(19, 25, 38, 0.92)';
 			context.fill();
-			context.strokeStyle = dim ? 'rgba(120, 150, 190, 0.18)' : accent;
-			context.lineWidth = node.side === 0 ? 1.6 : 1;
+			context.strokeStyle = dim ? 'rgba(120, 150, 190, 0.16)' : accent;
+			context.lineWidth = node.layer === 0 ? 1.6 : 1;
 			context.stroke();
 
 			const item = catalogue.items.get(node.id);
-			const icon = item ? sprite(item.imageUrl) : null;
-			const textLeft = node.x - NODE_W / 2 + (icon ? 30 : 10);
+			const icon = showIcon && item ? sprite(item.imageUrl) : null;
 
-			if (icon) {
-				context.drawImage(icon, node.x - NODE_W / 2 + 6, node.y - 10, 20, 20);
-			}
+			if (icon) context.drawImage(icon, node.x - nodeWidth / 2 + 5, node.y - 9, 18, 18);
 
 			context.fillStyle = dim ? 'rgba(150, 170, 195, 0.5)' : '#dbe4f0';
-			context.font = `${node.side === 0 ? '600 ' : ''}11px ui-sans-serif, system-ui, sans-serif`;
+			context.font = `${node.layer === 0 ? '600 ' : ''}11px ui-sans-serif, system-ui, sans-serif`;
 			context.textAlign = 'left';
 			context.textBaseline = 'middle';
 
 			const full = node.amount ? `${node.amount}x ${node.label}` : node.label;
-			const room = NODE_W - (icon ? 38 : 18);
+			const room = nodeWidth - (icon ? 34 : 16);
 
 			let label = full;
 			if (context.measureText(label).width > room) {
-				// Ellipsis matters here: several Terraria items share a long prefix, and a bare
+				// Ellipsis matters: several Terraria items share a long prefix, and a bare
 				// truncation renders half a column as identical text.
 				while (label.length > 1 && context.measureText(`${label}…`).width > room) {
 					label = label.slice(0, -1);
 				}
 				label = `${label}…`;
 			}
-			context.fillText(label, textLeft, node.y);
+			context.fillText(label, node.x - nodeWidth / 2 + (icon ? 27 : 8), node.y);
 		}
 
 		frame = requestAnimationFrame(draw);
 	}
 
-	function bezierAt(p0: number, p1: number, p2: number, p3: number, t: number) {
-		const u = 1 - t;
-		return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
-	}
-
 	function nodeAt(x: number, y: number): Node | null {
 		for (const node of nodes) {
 			if (
-				Math.abs(x - node.x) <= NODE_W / 2 &&
-				Math.abs(y - node.y) <= NODE_H / 2 &&
-				node.side !== 0
+				node.layer !== 0 &&
+				Math.abs(x - node.x) <= nodeWidth / 2 &&
+				Math.abs(y - node.y) <= NODE_H / 2
 			) {
 				return node;
 			}
@@ -272,8 +320,8 @@
 	}
 
 	$effect(() => {
-		// Relayout when the item or its neighbours change.
-		void [itemId, inputs, outputs];
+		// Relayout when the item or the requested depth changes.
+		void [itemId, depth, catalogue];
 		if (canvas) layout(canvas.clientWidth, canvas.clientHeight);
 
 		frame = requestAnimationFrame(draw);
@@ -283,15 +331,18 @@
 
 <div class="wrap panel">
 	<div class="head">
-		<span class="label side-l">
-			{inputs.length} ingredient{inputs.length === 1 ? '' : 's'}
-			{#if hiddenLeft}<span class="more">+{hiddenLeft} not shown</span>{/if}
-		</span>
-		<span class="label">crafting graph</span>
-		<span class="label side-r">
-			{#if hiddenRight}<span class="more">+{hiddenRight} not shown</span>{/if}
-			used in {usedIn.length}
-		</span>
+		<span class="label side-l">ingredients</span>
+
+		<div class="depth">
+			<span class="label">layers</span>
+			{#each Array.from({ length: MAX_DEPTH }, (_, i) => i + 1) as level (level)}
+				<button class="btn" class:on={depth === level} onclick={() => (depth = level)}>
+					{level}
+				</button>
+			{/each}
+		</div>
+
+		<span class="label side-r">used in</span>
 	</div>
 
 	<canvas
@@ -299,11 +350,11 @@
 		onpointermove={onMove}
 		onpointerleave={() => (hovered = null)}
 		onclick={onClick}
-		aria-label="Crafting graph for {name(itemId)}"
+		aria-label="Crafting graph for {name(itemId)}, {depth} layer(s) deep"
 	></canvas>
 
-	{#if inputs.length === 0 && outputs.length === 0}
-		<p class="empty label">nothing crafts this and nothing uses it</p>
+	{#if truncated > 0}
+		<p class="note label">{truncated} more would not fit — open an item to keep walking</p>
 	{/if}
 </div>
 
@@ -318,7 +369,8 @@
 		display: grid;
 		grid-template-columns: 1fr auto 1fr;
 		align-items: center;
-		padding: 0.6rem 0.85rem;
+		gap: 0.5rem;
+		padding: 0.55rem 0.85rem;
 		border-bottom: 1px solid var(--border);
 	}
 
@@ -332,20 +384,26 @@
 		color: var(--text-muted);
 	}
 
+	.depth {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+
+	.depth .btn {
+		padding: 0.2rem 0.5rem;
+	}
+
 	canvas {
 		display: block;
 		width: 100%;
-		height: 440px;
+		height: 460px;
 		touch-action: none;
 	}
 
-	.more {
-		margin: 0 0.4rem;
-		color: var(--magenta);
-	}
-
-	.empty {
-		padding: 0 0.85rem 0.7rem;
+	.note {
+		margin: 0;
+		padding: 0 0.85rem 0.6rem;
 		text-align: center;
 	}
 </style>

@@ -13,7 +13,13 @@ export default ts.config(
 	...svelte.configs.prettier,
 	{
 		languageOptions: {
-			globals: { ...globals.browser, ...globals.node }
+			globals: {
+				...globals.browser,
+				...globals.node,
+				// Injected by vite.config.ts at build time.
+				__APP_VERSION__: 'readonly',
+				__APP_BUILD__: 'readonly'
+			}
 		}
 	},
 	{

@@ -4,6 +4,7 @@
 	 * find, ranked by how much of the game it opens up.
 	 */
 	import { hideBrokenImage } from '$lib/images';
+	import { playerStage, rankCandidates, type SortMode } from '$lib/analysis/ranking';
 	import { sourceLabel } from '$lib/sources';
 	import type { Leverage } from '$lib/analysis/leverage';
 	import type { Catalogue, Progress } from '$lib/types';
@@ -16,17 +17,13 @@
 
 	let { catalogue, leverage, progress }: Props = $props();
 
-	type Sort = 'impact' | 'efficiency';
-	let sort = $state<Sort>('impact');
-	let limit = $state(12);
+	let sort = $state<SortMode>('best');
+	let limit = $state(24);
 
-	let ranked = $derived.by(() => {
-		const list = [...leverage];
-		if (sort === 'efficiency') {
-			list.sort((a, b) => b.impactPerSacrifice - a.impactPerSacrifice || b.impact - a.impact);
-		}
-		return list.slice(0, limit);
-	});
+	let stage = $derived(playerStage(catalogue, progress));
+	let ordered = $derived(rankCandidates(leverage, catalogue, stage, sort));
+	let ranked = $derived(ordered.slice(0, limit));
+	let lockedCount = $derived(ordered.filter((entry) => entry.locked).length);
 
 	let sources = $derived((id: number) => sourceLabel(catalogue, id));
 
@@ -48,11 +45,21 @@
 		<div>
 			<span class="label">next up</span>
 			<p class="blurb">
-				Research one of these and the rest cascades. Ranked by how many further items each unlocks.
+				{#if sort === 'best'}
+					Research one of these and the rest cascades. Things you can reach at your current stage
+					come first — {lockedCount.toLocaleString()} hardmode item{lockedCount === 1 ? '' : 's'} are
+					held back until you break a demon altar.
+				{:else}
+					Research one of these and the rest cascades. Ranked purely by the numbers, including items
+					you cannot reach yet.
+				{/if}
 			</p>
 		</div>
 
 		<div class="sorts">
+			<button class="btn" class:on={sort === 'best'} onclick={() => (sort = 'best')}>
+				best next
+			</button>
 			<button class="btn" class:on={sort === 'impact'} onclick={() => (sort = 'impact')}>
 				most unlocked
 			</button>
@@ -69,7 +76,7 @@
 			{#each ranked as entry (entry.id)}
 				{@const item = catalogue.items.get(entry.id)}
 				{#if item}
-					<li>
+					<li class:locked={entry.locked}>
 						<img
 							src={item.imageUrl}
 							alt=""
@@ -82,7 +89,10 @@
 						<div class="who">
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 							<a class="name" href="/item/{item.id}">{item.name}</a>
-							<span class="src">{sources(item.id)}</span>
+							<span class="src">
+								{#if entry.locked}<span class="gate">hardmode</span>{/if}
+								{sources(item.id)}
+							</span>
 						</div>
 
 						{#if done(item.id) > 0}
@@ -226,6 +236,23 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.gate {
+		color: var(--magenta);
+		font-family: var(--mono);
+		font-size: 0.62rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	/* Still listed, because it is genuinely high-value — just not yet actionable. */
+	.locked {
+		opacity: 0.6;
+	}
+
+	.locked:hover {
+		opacity: 1;
 	}
 
 	.bar {
