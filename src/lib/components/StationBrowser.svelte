@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { SvelteSet } from 'svelte/reactivity';
 	import { hideBrokenImage } from '$lib/images';
 	import type { Catalogue, Progress } from '$lib/types';
 
@@ -10,7 +9,7 @@
 
 	let { catalogue, progress }: Props = $props();
 
-	let craftableSet = $derived(new SvelteSet(progress.craftable));
+	let craftableSet = $derived(new Set(progress.craftable));
 
 	let rows = $derived.by(() => {
 		return [...catalogue.stations.values()]

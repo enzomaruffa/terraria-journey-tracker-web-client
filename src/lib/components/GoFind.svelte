@@ -1,4 +1,10 @@
 <script lang="ts">
+	/*
+	 * Plain Map/Set on purpose: these are local working collections inside a pure
+	 * computation, not shared state. Making them reactive re-triggers the very
+	 * derivation that fills them.
+	 */
+	/* eslint-disable svelte/prefer-svelte-reactivity */
 	/**
 	 * Everything the cascade cannot reach — the actual to-do list.
 	 *
@@ -6,7 +12,6 @@
 	 * you must go and obtain in the world, because no amount of crafting from what you have
 	 * will produce it.
 	 */
-	import { SvelteSet } from 'svelte/reactivity';
 	import { hideBrokenImage } from '$lib/images';
 	import { bestDropChance, sourceLabel } from '$lib/sources';
 	import type { ClosureResult } from '$lib/analysis/closure';
@@ -43,7 +48,7 @@
 	});
 
 	let categories = $derived.by(() => {
-		const names = new SvelteSet<string>();
+		const names = new Set<string>();
 		for (const item of unreachable) for (const name of item.categories) names.add(name);
 		return [...names].sort();
 	});

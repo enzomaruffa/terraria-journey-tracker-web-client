@@ -1,11 +1,16 @@
 <script lang="ts">
+	/*
+	 * Plain Map/Set on purpose: these are local working collections inside a pure
+	 * computation, not shared state. Making them reactive re-triggers the very
+	 * derivation that fills them.
+	 */
+	/* eslint-disable svelte/prefer-svelte-reactivity */
 	/**
 	 * Which parts of the catalogue are lagging.
 	 *
 	 * A single percentage hides the shape of the grind: someone can be 90% through weapons and
 	 * 5% through furniture, and those want completely different play sessions.
 	 */
-	import { SvelteMap } from 'svelte/reactivity';
 	import type { ClosureResult } from '$lib/analysis/closure';
 	import type { Catalogue, Progress } from '$lib/types';
 
@@ -26,7 +31,7 @@
 	}
 
 	let rows = $derived.by<Row[]>(() => {
-		const byName = new SvelteMap<string, Row>();
+		const byName = new Map<string, Row>();
 
 		for (const item of catalogue.items.values()) {
 			const sacrificed = progress.sacrificed[String(item.id)] ?? 0;

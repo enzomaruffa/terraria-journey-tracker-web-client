@@ -1,4 +1,9 @@
-import { SvelteSet } from 'svelte/reactivity';
+/*
+ * Plain Set on purpose below: the collections built inside `$derived` are local results, not
+ * shared state. Reactive ones re-trigger the derivation that fills them, which is an infinite
+ * loop rather than a lint nicety.
+ */
+/* eslint-disable svelte/prefer-svelte-reactivity */
 import { computeClosure, type ClosureResult } from './analysis/closure';
 import { buildGraph, type CraftGraph } from './analysis/graph';
 import { computeLeverage, type Leverage } from './analysis/leverage';
@@ -32,7 +37,7 @@ class Tracker {
 
 	/** Items whose sacrifice count has reached their research cost. */
 	researched = $derived.by(() => {
-		const done = new SvelteSet<number>();
+		const done = new Set<number>();
 		if (!this.catalogue || !this.progress) return done;
 
 		for (const [key, count] of Object.entries(this.progress.sacrificed)) {
@@ -60,7 +65,7 @@ class Tracker {
 	});
 
 	get knownNames(): Set<string> {
-		const names = new SvelteSet<string>();
+		const names = new Set<string>();
 		for (const item of this.catalogue?.items.values() ?? []) names.add(item.internalName);
 		return names;
 	}

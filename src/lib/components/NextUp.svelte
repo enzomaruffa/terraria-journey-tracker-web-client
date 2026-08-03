@@ -18,7 +18,7 @@
 	let { catalogue, leverage, progress }: Props = $props();
 
 	let sort = $state<SortMode>('best');
-	let limit = $state(24);
+	let limit = $state(48);
 
 	let stage = $derived(playerStage(catalogue, progress));
 	let ordered = $derived(rankCandidates(leverage, catalogue, stage, sort));
@@ -124,7 +124,7 @@
 		</ol>
 
 		{#if leverage.length > limit}
-			<button class="btn more" onclick={() => (limit += 12)}>
+			<button class="btn more" onclick={() => (limit += 48)}>
 				show more ({leverage.length - limit} left)
 			</button>
 		{/if}

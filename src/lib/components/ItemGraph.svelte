@@ -9,8 +9,15 @@
 	 */
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Catalogue } from '$lib/types';
+
+	/*
+	 * The collections below are deliberately plain Map/Set, not the Svelte reactive ones.
+	 * They are local working data built inside layout(), which runs from an $effect — a
+	 * reactive collection there re-triggers the very effect that fills it, which is an
+	 * infinite loop (effect_update_depth_exceeded) rather than a lint nicety.
+	 */
+	/* eslint-disable svelte/prefer-svelte-reactivity */
 
 	interface Props {
 		catalogue: Catalogue;
@@ -23,6 +30,8 @@
 	const NODE_H = 30;
 	const NODE_GAP = 8;
 	const MAX_DEPTH = 3;
+	/** Fixed rather than measured, so the layout cannot feed back into what is drawn. */
+	const MAX_PER_COLUMN = 11;
 
 	let depth = $state(1);
 
@@ -39,13 +48,12 @@
 
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let hovered = $state<number | null>(null);
-	let truncated = $state(0);
 	let nodes: Node[] = [];
 	let nodeWidth = 150;
 	let frame = 0;
 
 	/** Sprites are hotlinked, so every load has to suppress the referrer or wiki.gg 403s it. */
-	const sprites = new SvelteMap<string, HTMLImageElement>();
+	const sprites = new Map<string, HTMLImageElement>();
 
 	function sprite(url: string): HTMLImageElement | null {
 		if (!url) return null;
@@ -65,7 +73,7 @@
 
 	/** Distinct ingredients of everything that crafts `id`. */
 	function ingredientsOf(id: number): Map<number, number> {
-		const found = new SvelteMap<number, number>();
+		const found = new Map<number, number>();
 		for (const recipe of catalogue.recipes) {
 			if (recipe.id !== id) continue;
 			for (const ingredient of recipe.ingredients) {
@@ -100,7 +108,7 @@
 	 */
 	function expand(side: -1 | 1, maxDepth: number, capacity: number): Column[] {
 		const columns: Column[] = [];
-		const seen = new SvelteSet<number>([itemId]);
+		const seen = new Set<number>([itemId]);
 		let frontier = [itemId];
 
 		for (let step = 0; step < maxDepth; step++) {
@@ -132,20 +140,29 @@
 		return columns;
 	}
 
-	function columnCapacity(height: number): number {
-		return Math.max(1, Math.floor((height - 10) / (NODE_H + NODE_GAP)));
-	}
+	/*
+	 * Columns are derived from the item and the depth only — never from the canvas size.
+	 *
+	 * Deriving them from the measured height fed back on itself: the "N more" note is part of
+	 * the layout, so showing it changed the height, which changed how many nodes fit, which
+	 * changed the note. That loop is what crashed items with many recipes.
+	 */
+	let graph = $derived.by(() => {
+		const left = expand(-1, depth, MAX_PER_COLUMN);
+		const right = expand(1, depth, MAX_PER_COLUMN);
+		const dropped = [...left, ...right].reduce((sum, column) => sum + column.dropped, 0);
+		return { left, right, dropped };
+	});
+
+	let truncated = $derived(graph.dropped);
 
 	function layout(width: number, height: number) {
 		nodes = [];
-		truncated = 0;
 
 		const cx = width / 2;
 		const cy = height / 2;
-		const capacity = columnCapacity(height);
 
-		const left = expand(-1, depth, capacity);
-		const right = expand(1, depth, capacity);
+		const { left, right } = graph;
 		const columns = Math.max(left.length, right.length);
 
 		// Columns have to share the width, so nodes shrink as depth grows.
@@ -153,13 +170,12 @@
 		const slotWidth = width / slots;
 		nodeWidth = Math.max(72, Math.min(150, slotWidth - 14));
 
-		const indexById = new SvelteMap<number, number>();
+		const indexById = new Map<number, number>();
 		nodes.push({ id: itemId, label: name(itemId), x: cx, y: cy, layer: 0, parent: null });
 		indexById.set(itemId, 0);
 
 		const place = (side: -1 | 1, list: Column[]) => {
 			list.forEach((column, step) => {
-				truncated += column.dropped;
 				const pitch = NODE_H + NODE_GAP;
 				const top = cy - ((column.entries.length - 1) * pitch) / 2;
 
@@ -320,8 +336,8 @@
 	}
 
 	$effect(() => {
-		// Relayout when the item or the requested depth changes.
-		void [itemId, depth, catalogue];
+		// Relayout when the graph contents change.
+		void graph;
 		if (canvas) layout(canvas.clientWidth, canvas.clientHeight);
 
 		frame = requestAnimationFrame(draw);

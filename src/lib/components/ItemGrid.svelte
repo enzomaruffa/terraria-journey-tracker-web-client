@@ -26,7 +26,7 @@
 
 	const PAGE = 200;
 
-	let craftableSet = $derived(new SvelteSet(progress.craftable));
+	let craftableSet = $derived(new Set(progress.craftable));
 
 	let classified = $derived.by(() => {
 		const rows: { item: Item; state: ItemState; sacrificed: number }[] = [];
@@ -58,7 +58,10 @@
 	});
 
 	let categories = $derived.by(() => {
-		const names = new SvelteSet<string>();
+		// Local to this derivation, so a plain Set is correct — a reactive one would re-trigger
+		// the derivation that fills it. Only `states` above is genuinely shared state.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const names = new Set<string>();
 		for (const item of catalogue.items.values()) {
 			for (const name of item.categories) names.add(name);
 		}

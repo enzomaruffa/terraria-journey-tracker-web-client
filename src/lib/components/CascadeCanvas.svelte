@@ -1,4 +1,10 @@
 <script lang="ts">
+	/*
+	 * Plain Map/Set on purpose: these are local working collections inside a pure
+	 * computation, not shared state. Making them reactive re-triggers the very
+	 * derivation that fills them.
+	 */
+	/* eslint-disable svelte/prefer-svelte-reactivity */
 	/**
 	 * The research cascade, drawn as concentric rings.
 	 *
@@ -6,7 +12,6 @@
 	 * the picture answers "how far does my research actually reach" at a glance — which is the
 	 * whole point of computing the closure rather than a single step.
 	 */
-	import { SvelteMap } from 'svelte/reactivity';
 	import type { ClosureResult } from '$lib/analysis/closure';
 	import type { Catalogue } from '$lib/types';
 
@@ -34,7 +39,7 @@
 
 	/** Items per ring, keyed by craft distance. */
 	let rings = $derived.by(() => {
-		const byDepth = new SvelteMap<number, number[]>();
+		const byDepth = new Map<number, number[]>();
 		for (const [id, depth] of closure.depth) {
 			// Depth 0 is what you already have; the rings show what it reaches.
 			if (depth === 0) continue;
