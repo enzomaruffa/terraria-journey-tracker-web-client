@@ -1,8 +1,16 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import type { UserConfig } from 'vite';
+import { defineConfig } from 'vite';
 
-const config: UserConfig = {
-	plugins: [sveltekit()]
-};
-
-export default config;
+export default defineConfig({
+	plugins: [sveltekit()],
+	server: {
+		// Talk to the Python tracker during development without CORS or hardcoded ports in
+		// the client, so the same relative URLs work in the bundled build.
+		proxy: {
+			'/api': {
+				target: 'http://127.0.0.1:4777',
+				ws: true
+			}
+		}
+	}
+});
