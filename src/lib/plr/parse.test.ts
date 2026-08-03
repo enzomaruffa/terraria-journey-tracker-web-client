@@ -95,6 +95,15 @@ describe('parsePlayerFile', () => {
 		await expect(parsePlayerFile(raw, KNOWN)).rejects.toThrow(PlayerFileError);
 	});
 
+	it('reads a brand new character with only a few items', async () => {
+		// Too short to trust on length alone, but Terraria's own entry count confirms it.
+		const tiny = { IronPickaxe: 1, DirtBlock: 100, Wood: 100, Gel: 25 };
+		const save = await parsePlayerFile(await buildPlr({ research: tiny }), KNOWN);
+
+		expect(Object.fromEntries(save.research)).toEqual(tiny);
+		expect(save.researchVerified).toBe(true);
+	});
+
 	it('reports a character with no research table', async () => {
 		const raw = await buildPlr({ research: {} });
 		const save = await parsePlayerFile(raw, KNOWN);

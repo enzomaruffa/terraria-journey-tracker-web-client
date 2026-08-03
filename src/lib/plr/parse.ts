@@ -23,7 +23,15 @@ const JOURNEY_DIFFICULTY = 3;
 const MIN_NAME_LEN = 2;
 const MAX_NAME_LEN = 64;
 const MAX_SACRIFICE = 10_000;
+
+// How many consecutive well-formed entries we demand before trusting an offset on the
+// strength of the run alone.
 const MIN_RUN = 12;
+
+// Terraria writes the entry count immediately before the table. When that count matches the
+// run exactly, far fewer entries are needed to be sure — which is what lets a freshly made
+// Journey character, with only a handful of items researched, still be read.
+const MIN_VERIFIED_RUN = 3;
 
 export interface PlayerSave {
 	name: string;
@@ -91,12 +99,16 @@ function readString(view: DataView, bytes: Uint8Array, offset: number): [string,
 	return [new TextDecoder('utf-8').decode(slice), cursor + length];
 }
 
+function countMatches(view: DataView, start: number, found: number): boolean {
+	return start >= 4 && view.getInt32(start - 4, true) === found;
+}
+
 function scanResearch(
 	view: DataView,
 	bytes: Uint8Array,
 	knownNames: Set<string>
-): { entries: Map<string, number>; start: number } | null {
-	let best: { entries: Map<string, number>; start: number } | null = null;
+): { entries: Map<string, number>; verified: boolean } | null {
+	let best: { entries: Map<string, number>; verified: boolean } | null = null;
 
 	let offset = HEADER_SIZE;
 	const limit = bytes.length - 8;
@@ -119,8 +131,17 @@ function scanResearch(
 			cursor = entry.next;
 		}
 
-		if (entries.size >= MIN_RUN) {
-			if (best === null || entries.size > best.entries.size) best = { entries, start: offset };
+		const verified = countMatches(view, offset, entries.size);
+		const longEnough = entries.size >= MIN_RUN || (verified && entries.size >= MIN_VERIFIED_RUN);
+
+		if (longEnough) {
+			// A run Terraria's own count agrees with always beats a longer unverified one.
+			const better =
+				best === null ||
+				(verified && !best.verified) ||
+				(verified === best.verified && entries.size > best.entries.size);
+
+			if (better) best = { entries, verified };
 			offset = cursor;
 			continue;
 		}
@@ -169,9 +190,7 @@ export async function parsePlayerFile(
 	if (match) {
 		save.research = match.entries;
 		save.researchFound = true;
-		// Terraria stores the entry count immediately before the table.
-		save.researchVerified =
-			match.start >= 4 && view.getInt32(match.start - 4, true) === match.entries.size;
+		save.researchVerified = match.verified;
 	}
 
 	return save;
