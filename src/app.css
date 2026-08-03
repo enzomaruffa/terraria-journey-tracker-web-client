@@ -1,0 +1,77 @@
+:root {
+	--bg: #0f1115;
+	--surface: #171a21;
+	--border: #262b36;
+	--border-strong: #3a4150;
+	--text: #e7eaf0;
+	--text-muted: #a4acbb;
+	--text-faint: #6f7889;
+
+	--green: #4ade80;
+	--blue: #60a5fa;
+	--amber: #fbbf24;
+	--red: #f87171;
+
+	color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--bg: #eef0f4;
+		--surface: #ffffff;
+		--border: #dde1e8;
+		--border-strong: #c3c9d4;
+		--text: #1b1f27;
+		--text-muted: #565e6d;
+		--text-faint: #8b93a3;
+
+		--green: #16a34a;
+		--blue: #2563eb;
+		--amber: #d97706;
+		--red: #dc2626;
+
+		color-scheme: light;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family:
+		ui-sans-serif,
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		Roboto,
+		sans-serif;
+	font-size: 15px;
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+a {
+	color: var(--blue);
+}
+
+code {
+	font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+	font-size: 0.9em;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+	outline: 2px solid var(--blue);
+	outline-offset: 2px;
+}

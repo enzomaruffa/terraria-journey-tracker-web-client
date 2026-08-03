@@ -1,17 +1,27 @@
-<script>
-	import Header from './Header.svelte';
-	import './styles.css';
+<script lang="ts">
+	import '../app.css';
+
+	let { children } = $props();
 </script>
 
 <div class="app">
-	<Header />
+	<header>
+		<div class="inner">
+			<h1>Terraria Journey Tracker</h1>
+			<p class="tagline">Research progress, live from your character file</p>
+		</div>
+	</header>
 
 	<main>
-		<slot />
+		{@render children()}
 	</main>
 
 	<footer>
-		<p>deregues!</p>
+		<a href="https://github.com/enzomaruffa/terraria-journey-tracker-server">server</a>
+		<span>·</span>
+		<a href="https://github.com/enzomaruffa/terraria-journey-tracker-web-client">client</a>
+		<span>·</span>
+		<a href="https://terraria.wiki.gg">item data from terraria.wiki.gg</a>
 	</footer>
 </div>
 
@@ -22,27 +32,51 @@
 		min-height: 100vh;
 	}
 
+	header {
+		padding: 1.75rem 1rem 0;
+	}
+
+	.inner {
+		max-width: 76rem;
+		margin: 0 auto;
+	}
+
+	h1 {
+		margin: 0;
+		font-size: 1.2rem;
+		font-weight: 650;
+		letter-spacing: -0.015em;
+	}
+
+	.tagline {
+		margin: 0.15rem 0 0;
+		font-size: 0.82rem;
+		color: var(--text-faint);
+	}
+
 	main {
 		flex: 1;
-		display: flex;
-		flex-direction: column;
-		padding: 1rem;
 		width: 100%;
-		max-width: 64rem;
+		max-width: 76rem;
 		margin: 0 auto;
+		padding: 1.25rem 1rem 3rem;
 		box-sizing: border-box;
 	}
 
 	footer {
 		display: flex;
-		flex-direction: column;
 		justify-content: center;
-		align-items: center;
-		padding: 12px;
+		gap: 0.5rem;
+		padding: 1.5rem 1rem 2rem;
+		font-size: 0.75rem;
+		color: var(--text-faint);
 	}
-	@media (min-width: 480px) {
-		footer {
-			padding: 12px 0;
-		}
+
+	footer a {
+		color: var(--text-faint);
+	}
+
+	footer a:hover {
+		color: var(--text-muted);
 	}
 </style>
