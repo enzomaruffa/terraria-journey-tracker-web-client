@@ -90,6 +90,26 @@ describe('parsePlayerFile', () => {
 		expect(Object.fromEntries(save.research)).toEqual(RESEARCH);
 	});
 
+	it('keeps entries past a name the data does not know', async () => {
+		// Happens whenever the player is on a newer Terraria than the bundled data, or is
+		// running a mod. Ending the table there discarded everything beyond it, so a fully
+		// researched item could read as zero.
+		const mixed = { ...RESEARCH, SomeUnknownFutureItem: 5, GoldBroadsword: 1, Sunfury: 1 };
+		const save = await parsePlayerFile(await buildPlr({ research: mixed }), KNOWN);
+
+		expect(Object.fromEntries(save.research)).toEqual(mixed);
+		expect(save.researchVerified).toBe(true);
+	});
+
+	it('still rejects a run of mostly unfamiliar names', async () => {
+		const noise = Object.fromEntries(
+			Array.from({ length: 40 }, (_, i) => [`NotARealItem${i}`, i + 1])
+		);
+		const save = await parsePlayerFile(await buildPlr({ research: noise }), KNOWN);
+
+		expect(save.researchFound).toBe(false);
+	});
+
 	it('rejects a file that is not a character', async () => {
 		const raw = await buildPlr({ research: RESEARCH, corruptMagic: true });
 		await expect(parsePlayerFile(raw, KNOWN)).rejects.toThrow(PlayerFileError);

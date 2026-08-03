@@ -3,8 +3,11 @@
  *
  * Same strategy: rather than walking to the research table with byte offsets that change
  * with every Terraria patch, find it by shape. Each entry is a .NET length-prefixed string
- * followed by a little-endian int32, and each string must be an item internal name the
- * game ships. A dozen of those in a row is a fingerprint nothing else in the file produces.
+ * followed by a little-endian int32. A dozen of those in a row is a fingerprint nothing else
+ * in the file produces.
+ *
+ * Names the bundled data does not recognise do not end a run — a player may be on a newer
+ * Terraria, or running a mod — they only lower the run's confidence score.
  */
 
 import { decryptPlayerFile } from './crypto';
@@ -32,6 +35,10 @@ const MIN_RUN = 12;
 // run exactly, far fewer entries are needed to be sure — which is what lets a freshly made
 // Journey character, with only a handful of items researched, still be read.
 const MIN_VERIFIED_RUN = 3;
+
+// What share of a run's names must be ones the bundled data knows. The real table is very
+// close to 1.0; random bytes that happen to parse score near 0.
+const MIN_RECOGNISED = 0.5;
 
 export interface PlayerSave {
 	name: string;
@@ -120,21 +127,24 @@ function scanResearch(
 		}
 
 		const entries = new Map<string, number>();
+		let known = 0;
 		let cursor = offset;
 
 		while (cursor < limit) {
 			const entry = candidateEntry(view, bytes, cursor);
 			if (entry === null) break;
-			if (!knownNames.has(entry.name)) break;
+			// A repeat means we drifted; the table is a dictionary.
 			if (entries.has(entry.name)) break;
 			entries.set(entry.name, entry.count);
+			if (knownNames.has(entry.name)) known += 1;
 			cursor = entry.next;
 		}
 
+		const recognised = entries.size > 0 ? known / entries.size : 0;
 		const verified = countMatches(view, offset, entries.size);
 		const longEnough = entries.size >= MIN_RUN || (verified && entries.size >= MIN_VERIFIED_RUN);
 
-		if (longEnough) {
+		if (longEnough && recognised >= MIN_RECOGNISED) {
 			// A run Terraria's own count agrees with always beats a longer unverified one.
 			const better =
 				best === null ||

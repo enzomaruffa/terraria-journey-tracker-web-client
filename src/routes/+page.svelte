@@ -71,9 +71,19 @@
 
 		{#if tracker.progress.unknownInternalNames.length > 0}
 			<p class="warn">
-				{tracker.progress.unknownInternalNames.length} researched item(s) are missing from the bundled
-				data — your Terraria is probably newer than this snapshot. Re-run
-				<code>terraria-tracker-refresh</code> on the server.
+				{tracker.progress.unknownInternalNames.length} researched item(s) are not in the bundled data
+				— your Terraria is probably newer than this snapshot, so those are not counted. Re-run
+				<code>terraria-tracker-refresh</code> to pick them up.
+				<span class="quiet">({tracker.progress.unknownInternalNames.slice(0, 6).join(', ')})</span>
+			</p>
+		{/if}
+
+		{#if tracker.progress.researchFound && !tracker.progress.researchVerified}
+			<!-- Terraria stores the entry count next to the table. When it disagrees with what we
+			     read, the numbers below are a partial view and saying so beats quietly being wrong. -->
+			<p class="warn">
+				The research table did not match the count stored alongside it, so these totals may be
+				incomplete. Please report this with your Terraria version.
 			</p>
 		{/if}
 
@@ -209,5 +219,9 @@
 		padding: 0.1rem 0.3rem;
 		background: var(--bg);
 		border-radius: 4px;
+	}
+
+	.quiet {
+		color: var(--text-faint);
 	}
 </style>
