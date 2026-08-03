@@ -1,37 +1,64 @@
-:root {
-	--bg: #0f1115;
-	--surface: #171a21;
-	--border: #262b36;
-	--border-strong: #3a4150;
-	--text: #e7eaf0;
-	--text-muted: #a4acbb;
-	--text-faint: #6f7889;
+/*
+ * Terminal-flavoured dark theme. Numbers are the content here, so the palette stays out of
+ * the way and the accents are reserved for state: cyan for reachable, green for done, amber
+ * for partial, magenta for the "go find this" signal.
+ */
 
-	--green: #4ade80;
-	--blue: #60a5fa;
+:root {
+	--bg: #070a0f;
+	--bg-raised: #0b0f16;
+	--surface: #0e131c;
+	--surface-2: #131926;
+	--border: #1c2534;
+	--border-strong: #2a3648;
+
+	--text: #dbe4f0;
+	--text-muted: #8b9bb4;
+	--text-faint: #5a6980;
+
+	--cyan: #22d3ee;
+	--green: #34d399;
 	--amber: #fbbf24;
-	--red: #f87171;
+	--magenta: #e879f9;
+	--red: #fb7185;
+
+	--glow: 0 0 12px color-mix(in srgb, var(--cyan) 45%, transparent);
+
+	--mono:
+		ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', 'Fira Code', Menlo, Consolas,
+		monospace;
+	--sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+	--radius: 6px;
 
 	color-scheme: dark;
 }
 
-@media (prefers-color-scheme: light) {
-	:root {
-		--bg: #eef0f4;
-		--surface: #ffffff;
-		--border: #dde1e8;
-		--border-strong: #c3c9d4;
-		--text: #1b1f27;
-		--text-muted: #565e6d;
-		--text-faint: #8b93a3;
+/*
+ * Light is opt-in via the toggle, not inherited from the OS: the dark instrument panel is the
+ * intended look, and a light desktop should not silently replace it.
+ */
+:root[data-theme='light'] {
+	--bg: #eef1f6;
+	--bg-raised: #ffffff;
+	--surface: #ffffff;
+	--surface-2: #f4f6fa;
+	--border: #d9dfe8;
+	--border-strong: #b9c2d0;
 
-		--green: #16a34a;
-		--blue: #2563eb;
-		--amber: #d97706;
-		--red: #dc2626;
+	--text: #131926;
+	--text-muted: #4d5a6e;
+	--text-faint: #7a8798;
 
-		color-scheme: light;
-	}
+	--cyan: #0891b2;
+	--green: #059669;
+	--amber: #b45309;
+	--magenta: #a21caf;
+	--red: #dc2626;
+
+	--glow: none;
+
+	color-scheme: light;
 }
 
 * {
@@ -47,31 +74,116 @@ body {
 body {
 	background: var(--bg);
 	color: var(--text);
-	font-family:
-		ui-sans-serif,
-		system-ui,
-		-apple-system,
-		'Segoe UI',
-		Roboto,
-		sans-serif;
+	font-family: var(--sans);
 	font-size: 15px;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
 }
 
-a {
-	color: var(--blue);
+/* Faint engineering grid, so flat panels sit on something rather than floating. */
+body::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background-image:
+		linear-gradient(color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+		linear-gradient(90deg, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+	background-size: 44px 44px;
+	mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+	opacity: 0.5;
 }
 
-code {
-	font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-	font-size: 0.9em;
+a {
+	color: var(--cyan);
+	text-decoration-color: color-mix(in srgb, var(--cyan) 40%, transparent);
+}
+
+code,
+.mono {
+	font-family: var(--mono);
+}
+
+/* Shared primitives ------------------------------------------------------- */
+
+.panel {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+
+.label {
+	font-family: var(--mono);
+	font-size: 0.68rem;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--text-faint);
+}
+
+.num {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+}
+
+button {
+	font-family: inherit;
+}
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.4rem 0.8rem;
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	color: var(--text-muted);
+	font-family: var(--mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.04em;
+	cursor: pointer;
+	transition:
+		border-color 0.15s,
+		color 0.15s,
+		background 0.15s;
+}
+
+.btn:hover {
+	color: var(--text);
+	border-color: var(--border-strong);
+}
+
+.btn.on {
+	color: var(--bg);
+	background: var(--cyan);
+	border-color: var(--cyan);
+	box-shadow: var(--glow);
 }
 
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible {
-	outline: 2px solid var(--blue);
+	outline: 2px solid var(--cyan);
 	outline-offset: 2px;
+}
+
+::selection {
+	background: color-mix(in srgb, var(--cyan) 35%, transparent);
+}
+
+/* Scrollbars, so long lists match the rest of the surface. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		transition-duration: 0.001ms !important;
+	}
 }

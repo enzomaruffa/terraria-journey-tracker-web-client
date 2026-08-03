@@ -1,14 +1,27 @@
 <script lang="ts">
 	import '../app.css';
+	import { theme } from '$lib/theme.svelte';
 
 	let { children } = $props();
+
+	$effect(() => theme.init());
 </script>
 
 <div class="app">
 	<header>
 		<div class="inner">
-			<h1>Terraria Journey Tracker</h1>
-			<p class="tagline">Research progress, live from your character file</p>
+			<div>
+				<h1>Terraria Journey Tracker</h1>
+				<p class="tagline">Research progress, live from your character file</p>
+			</div>
+
+			<button
+				class="btn"
+				onclick={() => theme.toggle()}
+				aria-label="Switch to the {theme.current === 'dark' ? 'light' : 'dark'} theme"
+			>
+				{theme.current === 'dark' ? 'light' : 'dark'}
+			</button>
 		</div>
 	</header>
 
@@ -37,13 +50,17 @@
 	}
 
 	.inner {
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+		gap: 1rem;
 		max-width: 76rem;
 		margin: 0 auto;
 	}
 
 	h1 {
 		margin: 0;
-		font-size: 1.2rem;
+		font-size: 1.15rem;
 		font-weight: 650;
 		letter-spacing: -0.015em;
 	}

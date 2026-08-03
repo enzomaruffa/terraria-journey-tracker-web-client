@@ -71,10 +71,19 @@
 		padding: 0.45rem 0.7rem;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 8px;
+		border-radius: var(--radius);
 		color: inherit;
-		font: inherit;
-		font-size: 0.85rem;
+		font-family: var(--mono);
+		font-size: 0.78rem;
+	}
+
+	input::placeholder {
+		color: var(--text-faint);
+	}
+
+	input:focus,
+	select:focus {
+		border-color: var(--cyan);
 	}
 
 	input {
@@ -92,24 +101,34 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
-		padding: 0.4rem 0.7rem;
+		padding: 0.38rem 0.7rem;
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: 999px;
-		color: var(--text-muted);
-		font: inherit;
-		font-size: 0.8rem;
+		color: var(--text-faint);
+		font-family: var(--mono);
+		font-size: 0.72rem;
+		letter-spacing: 0.04em;
 		cursor: pointer;
+		transition:
+			color 0.15s,
+			border-color 0.15s,
+			background 0.15s;
+	}
+
+	.chip:hover {
+		color: var(--text-muted);
+		border-color: var(--border-strong);
 	}
 
 	.chip.on {
-		color: var(--text);
-		border-color: var(--chip);
-		background: color-mix(in srgb, var(--chip) 16%, var(--surface));
+		color: var(--chip);
+		border-color: color-mix(in srgb, var(--chip) 60%, transparent);
+		background: color-mix(in srgb, var(--chip) 12%, var(--surface));
 	}
 
 	.chip.craftable {
-		--chip: var(--blue);
+		--chip: var(--cyan);
 	}
 	.chip.partial {
 		--chip: var(--amber);
@@ -118,12 +137,12 @@
 		--chip: var(--green);
 	}
 	.chip.locked {
-		--chip: var(--text-faint);
+		--chip: var(--text-muted);
 	}
 
 	.n {
 		font-variant-numeric: tabular-nums;
-		font-size: 0.72rem;
+		font-size: 0.66rem;
 		color: var(--text-faint);
 	}
 </style>

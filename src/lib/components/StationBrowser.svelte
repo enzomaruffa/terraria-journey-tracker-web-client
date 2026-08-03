@@ -81,7 +81,7 @@
 		padding: 0.5rem 0.7rem;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 8px;
+		border-radius: var(--radius);
 	}
 
 	.idle {
@@ -116,7 +116,7 @@
 
 	.badge {
 		padding: 0.2rem 0.5rem;
-		background: color-mix(in srgb, var(--blue) 20%, var(--surface));
+		background: color-mix(in srgb, var(--cyan) 20%, var(--surface));
 		border-radius: 999px;
 		font-size: 0.75rem;
 		font-weight: 600;

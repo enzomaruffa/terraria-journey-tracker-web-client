@@ -1,14 +1,22 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import CascadeCanvas from '$lib/components/CascadeCanvas.svelte';
 	import DropZone from '$lib/components/DropZone.svelte';
 	import ItemGrid from '$lib/components/ItemGrid.svelte';
+	import NextUp from '$lib/components/NextUp.svelte';
 	import Overview from '$lib/components/Overview.svelte';
 	import StationBrowser from '$lib/components/StationBrowser.svelte';
 	import StatusBar from '$lib/components/StatusBar.svelte';
 	import { tracker } from '$lib/tracker.svelte';
 
-	type Tab = 'items' | 'stations';
-	let tab = $state<Tab>('items');
+	type Tab = 'next' | 'items' | 'stations';
+	let tab = $state<Tab>('next');
+
+	const TABS: { key: Tab; label: string }[] = [
+		{ key: 'next', label: 'next up' },
+		{ key: 'items', label: 'items' },
+		{ key: 'stations', label: 'stations' }
+	];
 
 	onMount(() => tracker.start());
 	onDestroy(() => tracker.destroy());
@@ -49,18 +57,28 @@
 			</p>
 		{/if}
 
-		<Overview progress={tracker.progress} />
+		<div class="split">
+			<Overview progress={tracker.progress} closure={tracker.closure} />
+			{#if tracker.closure && tracker.closure.unlocked.length > 0}
+				<CascadeCanvas
+					catalogue={tracker.catalogue}
+					closure={tracker.closure}
+					researched={tracker.researched}
+				/>
+			{/if}
+		</div>
 
 		<nav class="tabs">
-			<button type="button" class:on={tab === 'items'} onclick={() => (tab = 'items')}>
-				Items
-			</button>
-			<button type="button" class:on={tab === 'stations'} onclick={() => (tab = 'stations')}>
-				Crafting stations
-			</button>
+			{#each TABS as entry (entry.key)}
+				<button type="button" class:on={tab === entry.key} onclick={() => (tab = entry.key)}>
+					{entry.label}
+				</button>
+			{/each}
 		</nav>
 
-		{#if tab === 'items'}
+		{#if tab === 'next'}
+			<NextUp catalogue={tracker.catalogue} leverage={tracker.leverage} />
+		{:else if tab === 'items'}
 			<ItemGrid catalogue={tracker.catalogue} progress={tracker.progress} />
 		{:else}
 			<StationBrowser catalogue={tracker.catalogue} progress={tracker.progress} />
@@ -88,23 +106,38 @@
 	.warn {
 		margin: 0;
 		padding: 0.7rem 0.9rem;
-		border-radius: 8px;
+		border-radius: var(--radius);
 		font-size: 0.85rem;
 	}
 
 	.error {
-		background: color-mix(in srgb, var(--red) 15%, var(--surface));
+		background: color-mix(in srgb, var(--red) 12%, var(--surface));
 		border: 1px solid color-mix(in srgb, var(--red) 45%, var(--border));
+		border-left-width: 3px;
 	}
 
 	.warn {
-		background: color-mix(in srgb, var(--amber) 12%, var(--surface));
+		background: color-mix(in srgb, var(--amber) 10%, var(--surface));
 		border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--border));
+		border-left-width: 3px;
+	}
+
+	.split {
+		display: grid;
+		gap: 0.7rem;
+		grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+		align-items: start;
+	}
+
+	@media (max-width: 900px) {
+		.split {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	.tabs {
 		display: flex;
-		gap: 0.4rem;
+		gap: 0.15rem;
 		border-bottom: 1px solid var(--border);
 	}
 
@@ -113,15 +146,23 @@
 		background: none;
 		border: none;
 		border-bottom: 2px solid transparent;
-		color: var(--text-muted);
-		font: inherit;
-		font-size: 0.88rem;
+		color: var(--text-faint);
+		font-family: var(--mono);
+		font-size: 0.74rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		cursor: pointer;
+		transition: color 0.15s;
+	}
+
+	.tabs button:hover {
+		color: var(--text-muted);
 	}
 
 	.tabs button.on {
-		color: var(--text);
-		border-bottom-color: var(--blue);
+		color: var(--cyan);
+		border-bottom-color: var(--cyan);
+		text-shadow: var(--glow);
 	}
 
 	code {

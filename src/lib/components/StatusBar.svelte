@@ -64,7 +64,7 @@
 	}
 
 	.dot.local {
-		background: var(--blue);
+		background: var(--cyan);
 	}
 
 	.dot.connecting {

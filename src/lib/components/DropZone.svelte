@@ -81,14 +81,14 @@
 		gap: 0.5rem;
 		padding: 2.5rem 1.5rem;
 		border: 2px dashed var(--border);
-		border-radius: 14px;
+		border-radius: var(--radius);
 		background: var(--surface);
 		text-align: center;
 	}
 
 	.dragging {
-		border-color: var(--blue);
-		background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+		border-color: var(--cyan);
+		background: color-mix(in srgb, var(--cyan) 12%, var(--surface));
 	}
 
 	.headline {
@@ -112,9 +112,9 @@
 	.button {
 		margin-top: 0.4rem;
 		padding: 0.5rem 1.1rem;
-		background: var(--blue);
+		background: var(--cyan);
 		border: none;
-		border-radius: 8px;
+		border-radius: var(--radius);
 		color: #06121f;
 		font: inherit;
 		font-size: 0.85rem;
