@@ -1,11 +1,14 @@
 <script lang="ts">
 	import '../app.css';
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import { theme } from '$lib/theme.svelte';
 
 	let { children } = $props();
 
 	$effect(() => theme.init());
 </script>
+
+<CommandPalette />
 
 <div class="app">
 	<header>
@@ -15,13 +18,16 @@
 				<p class="tagline">Research progress, live from your character file</p>
 			</div>
 
-			<button
-				class="btn"
-				onclick={() => theme.toggle()}
-				aria-label="Switch to the {theme.current === 'dark' ? 'light' : 'dark'} theme"
-			>
-				{theme.current === 'dark' ? 'light' : 'dark'}
-			</button>
+			<div class="actions">
+				<span class="hint label">ctrl k</span>
+				<button
+					class="btn"
+					onclick={() => theme.toggle()}
+					aria-label="Switch to the {theme.current === 'dark' ? 'light' : 'dark'} theme"
+				>
+					{theme.current === 'dark' ? 'light' : 'dark'}
+				</button>
+			</div>
 		</div>
 	</header>
 
@@ -69,6 +75,18 @@
 		margin: 0.15rem 0 0;
 		font-size: 0.82rem;
 		color: var(--text-faint);
+	}
+
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.hint {
+		padding: 0.25rem 0.45rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
 	}
 
 	main {

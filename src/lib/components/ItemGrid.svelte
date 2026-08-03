@@ -2,6 +2,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import Filters from './Filters.svelte';
 	import ItemCard from './ItemCard.svelte';
+	import { readQuery, replaceQuery } from '$lib/urlstate';
 	import type { Catalogue, Item, ItemState, Progress } from '$lib/types';
 
 	interface Props {
@@ -11,9 +12,15 @@
 
 	let { catalogue, progress }: Props = $props();
 
-	let search = $state('');
-	let category = $state('');
-	const states = new SvelteSet<ItemState>(['craftable', 'partial']);
+	const DEFAULT_STATES: ItemState[] = ['craftable', 'partial'];
+
+	// Filters live in the URL, so a filtered view survives a reload and can be handed to
+	// someone else.
+	let search = $state(readQuery('q'));
+	let category = $state(readQuery('cat'));
+	const states = new SvelteSet<ItemState>(
+		readQuery('show') ? (readQuery('show').split(',') as ItemState[]) : DEFAULT_STATES
+	);
 	// 6,000 item nodes at once janks scrolling badly; reveal them in pages instead.
 	let limit = $state(200);
 
@@ -75,6 +82,17 @@
 		void category;
 		void states;
 		limit = PAGE;
+	});
+
+	$effect(() => {
+		const show = [...states].sort().join(',');
+		const isDefault = show === [...DEFAULT_STATES].sort().join(',');
+
+		replaceQuery({
+			q: search.trim() || null,
+			cat: category || null,
+			show: isDefault ? null : show
+		});
 	});
 
 	let visible = $derived(filtered.slice(0, limit));

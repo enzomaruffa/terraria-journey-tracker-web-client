@@ -4,6 +4,7 @@
 	 * find, ranked by how much of the game it opens up.
 	 */
 	import { hideBrokenImage } from '$lib/images';
+	import { sourceLabel } from '$lib/sources';
 	import type { Leverage } from '$lib/analysis/leverage';
 	import type { Catalogue } from '$lib/types';
 
@@ -28,21 +29,7 @@
 
 	let top = $derived(leverage[0]?.impact ?? 1);
 
-	let craftable = $derived(new Set(catalogue.recipes.map((r) => r.id)));
-
-	function sources(id: number): string {
-		const drops = catalogue.drops.get(id);
-		if (!drops || drops.length === 0) {
-			// The Drops table covers things that drop from something; ore you mine is simply
-			// absent from it, so "no listed drop" is all we can honestly say.
-			return craftable.has(id) ? 'crafted' : 'found in the world';
-		}
-
-		// The same enemy can appear more than once with different rates or difficulties.
-		const unique = [...new Set(drops.map((d) => d.source))];
-		const shown = unique.slice(0, 2).join(', ');
-		return unique.length > 2 ? `${shown} +${unique.length - 2}` : shown;
-	}
+	let sources = $derived((id: number) => sourceLabel(catalogue, id));
 </script>
 
 <section class="panel">
@@ -136,35 +123,56 @@
 		gap: 0.35rem;
 	}
 
+	/* Cards where there is room; rows on a phone, where density wins. */
 	ol {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
+		display: grid;
+		gap: 0.45rem;
+		grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
 	}
 
 	li {
 		display: grid;
-		grid-template-columns: 30px minmax(8rem, 1.3fr) minmax(3rem, 1fr) auto;
+		grid-template-columns: 34px minmax(0, 1fr) auto;
+		grid-template-areas:
+			'icon who stats'
+			'icon bar stats';
 		align-items: center;
-		gap: 0.7rem;
-		padding: 0.4rem 0.5rem;
+		gap: 0.3rem 0.65rem;
+		padding: 0.6rem 0.7rem;
 		background: var(--surface-2);
-		border: 1px solid transparent;
+		border: 1px solid var(--border);
 		border-radius: var(--radius);
+		transition:
+			border-color 0.15s,
+			transform 0.15s;
 	}
 
 	li:hover {
 		border-color: var(--border-strong);
+		transform: translateY(-1px);
 	}
 
 	img {
-		width: 30px;
-		height: 30px;
+		grid-area: icon;
+		width: 34px;
+		height: 34px;
 		object-fit: contain;
 		image-rendering: pixelated;
+	}
+
+	.who {
+		grid-area: who;
+	}
+
+	.bar {
+		grid-area: bar;
+	}
+
+	.stats {
+		grid-area: stats;
 	}
 
 	.who {
@@ -234,10 +242,23 @@
 		text-align: center;
 	}
 
-	@media (max-width: 620px) {
-		li {
-			grid-template-columns: 26px 1fr auto;
+	@media (max-width: 640px) {
+		ol {
+			grid-template-columns: 1fr;
+			gap: 0.25rem;
 		}
+
+		li {
+			grid-template-columns: 26px minmax(0, 1fr) auto;
+			grid-template-areas: 'icon who stats';
+			padding: 0.4rem 0.5rem;
+		}
+
+		img {
+			width: 26px;
+			height: 26px;
+		}
+
 		.bar {
 			display: none;
 		}

@@ -1,22 +1,40 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { page } from '$app/state';
 	import CascadeCanvas from '$lib/components/CascadeCanvas.svelte';
+	import CategoryProgress from '$lib/components/CategoryProgress.svelte';
 	import DropZone from '$lib/components/DropZone.svelte';
+	import GoFind from '$lib/components/GoFind.svelte';
 	import ItemGrid from '$lib/components/ItemGrid.svelte';
 	import NextUp from '$lib/components/NextUp.svelte';
 	import Overview from '$lib/components/Overview.svelte';
 	import StationBrowser from '$lib/components/StationBrowser.svelte';
 	import StatusBar from '$lib/components/StatusBar.svelte';
+	import { replaceQuery } from '$lib/urlstate';
 	import { tracker } from '$lib/tracker.svelte';
 
-	type Tab = 'next' | 'items' | 'stations';
-	let tab = $state<Tab>('next');
+	type Tab = 'next' | 'find' | 'items' | 'categories' | 'stations';
 
 	const TABS: { key: Tab; label: string }[] = [
 		{ key: 'next', label: 'next up' },
+		{ key: 'find', label: 'go find' },
 		{ key: 'items', label: 'items' },
+		{ key: 'categories', label: 'categories' },
 		{ key: 'stations', label: 'stations' }
 	];
+
+	const KEYS = TABS.map((entry) => entry.key);
+
+	// The tab lives in the URL so a reload, a back button or a shared link all land in the
+	// same place.
+	let tab = $derived.by<Tab>(() => {
+		const value = page.url.searchParams.get('tab');
+		return KEYS.includes(value as Tab) ? (value as Tab) : 'next';
+	});
+
+	function select(next: Tab) {
+		replaceQuery({ tab: next === 'next' ? null : next });
+	}
 
 	onMount(() => tracker.start());
 	onDestroy(() => tracker.destroy());
@@ -70,7 +88,7 @@
 
 		<nav class="tabs">
 			{#each TABS as entry (entry.key)}
-				<button type="button" class:on={tab === entry.key} onclick={() => (tab = entry.key)}>
+				<button type="button" class:on={tab === entry.key} onclick={() => select(entry.key)}>
 					{entry.label}
 				</button>
 			{/each}
@@ -78,8 +96,16 @@
 
 		{#if tab === 'next'}
 			<NextUp catalogue={tracker.catalogue} leverage={tracker.leverage} />
+		{:else if tab === 'find'}
+			<GoFind catalogue={tracker.catalogue} closure={tracker.closure} leverage={tracker.leverage} />
 		{:else if tab === 'items'}
 			<ItemGrid catalogue={tracker.catalogue} progress={tracker.progress} />
+		{:else if tab === 'categories'}
+			<CategoryProgress
+				catalogue={tracker.catalogue}
+				progress={tracker.progress}
+				closure={tracker.closure}
+			/>
 		{:else}
 			<StationBrowser catalogue={tracker.catalogue} progress={tracker.progress} />
 		{/if}
@@ -139,9 +165,17 @@
 		display: flex;
 		gap: 0.15rem;
 		border-bottom: 1px solid var(--border);
+		/* Five tabs do not fit on a phone; scrolling beats wrapping or clipping. */
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.tabs::-webkit-scrollbar {
+		display: none;
 	}
 
 	.tabs button {
+		flex: none;
 		padding: 0.5rem 0.9rem;
 		background: none;
 		border: none;
