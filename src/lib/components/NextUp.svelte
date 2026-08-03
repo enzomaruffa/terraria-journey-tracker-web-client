@@ -6,14 +6,15 @@
 	import { hideBrokenImage } from '$lib/images';
 	import { sourceLabel } from '$lib/sources';
 	import type { Leverage } from '$lib/analysis/leverage';
-	import type { Catalogue } from '$lib/types';
+	import type { Catalogue, Progress } from '$lib/types';
 
 	interface Props {
 		catalogue: Catalogue;
 		leverage: Leverage[];
+		progress: Progress;
 	}
 
-	let { catalogue, leverage }: Props = $props();
+	let { catalogue, leverage, progress }: Props = $props();
 
 	type Sort = 'impact' | 'efficiency';
 	let sort = $state<Sort>('impact');
@@ -27,9 +28,19 @@
 		return list.slice(0, limit);
 	});
 
-	let top = $derived(leverage[0]?.impact ?? 1);
-
 	let sources = $derived((id: number) => sourceLabel(catalogue, id));
+
+	/**
+	 * How far along this item already is.
+	 *
+	 * The bar used to show leverage relative to the top-ranked item, which read as research
+	 * progress and so looked plainly wrong: an item you have never touched showed a
+	 * half-filled bar next to "100x to research". A bar means progress; leverage is the
+	 * number.
+	 */
+	function done(id: number): number {
+		return progress.sacrificed[String(id)] ?? 0;
+	}
 </script>
 
 <section class="panel">
@@ -74,13 +85,28 @@
 							<span class="src">{sources(item.id)}</span>
 						</div>
 
-						<div class="bar" aria-hidden="true">
-							<span style="width: {(entry.impact / top) * 100}%"></span>
-						</div>
+						{#if done(item.id) > 0}
+							<div
+								class="bar"
+								title="{done(item.id)} of {item.research} sacrificed"
+								role="progressbar"
+								aria-valuenow={done(item.id)}
+								aria-valuemin="0"
+								aria-valuemax={item.research}
+							>
+								<span style="width: {Math.min(100, (done(item.id) / item.research) * 100)}%"></span>
+							</div>
+						{/if}
 
 						<div class="stats">
 							<span class="unlocks num">+{entry.impact}</span>
-							<span class="cost num label">{item.research}x to research</span>
+							<span class="cost num label">
+								{#if done(item.id) > 0}
+									{done(item.id)}/{item.research} sacrificed
+								{:else}
+									{item.research}x to research
+								{/if}
+							</span>
 						</div>
 					</li>
 				{/if}
@@ -212,8 +238,7 @@
 	.bar span {
 		display: block;
 		height: 100%;
-		background: linear-gradient(90deg, var(--cyan), var(--magenta));
-		box-shadow: var(--glow);
+		background: var(--amber);
 	}
 
 	.stats {

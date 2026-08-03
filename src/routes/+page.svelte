@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { page } from '$app/state';
 	import CascadeCanvas from '$lib/components/CascadeCanvas.svelte';
 	import CategoryProgress from '$lib/components/CategoryProgress.svelte';
 	import DropZone from '$lib/components/DropZone.svelte';
@@ -10,7 +9,7 @@
 	import Overview from '$lib/components/Overview.svelte';
 	import StationBrowser from '$lib/components/StationBrowser.svelte';
 	import StatusBar from '$lib/components/StatusBar.svelte';
-	import { replaceQuery } from '$lib/urlstate';
+	import { readQuery, replaceQuery } from '$lib/urlstate';
 	import { tracker } from '$lib/tracker.svelte';
 
 	type Tab = 'next' | 'find' | 'items' | 'categories' | 'stations';
@@ -25,14 +24,17 @@
 
 	const KEYS = TABS.map((entry) => entry.key);
 
-	// The tab lives in the URL so a reload, a back button or a shared link all land in the
-	// same place.
-	let tab = $derived.by<Tab>(() => {
-		const value = page.url.searchParams.get('tab');
+	function initialTab(): Tab {
+		const value = readQuery('tab');
 		return KEYS.includes(value as Tab) ? (value as Tab) : 'next';
-	});
+	}
+
+	// Local state drives the view and the URL mirrors it, rather than the other way round:
+	// reading the tab back out of the URL did not re-run when the address changed.
+	let tab = $state<Tab>(initialTab());
 
 	function select(next: Tab) {
+		tab = next;
 		replaceQuery({ tab: next === 'next' ? null : next });
 	}
 
@@ -95,7 +97,11 @@
 		</nav>
 
 		{#if tab === 'next'}
-			<NextUp catalogue={tracker.catalogue} leverage={tracker.leverage} />
+			<NextUp
+				catalogue={tracker.catalogue}
+				leverage={tracker.leverage}
+				progress={tracker.progress}
+			/>
 		{:else if tab === 'find'}
 			<GoFind catalogue={tracker.catalogue} closure={tracker.closure} leverage={tracker.leverage} />
 		{:else if tab === 'items'}
